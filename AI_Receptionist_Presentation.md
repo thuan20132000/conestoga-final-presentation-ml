@@ -18,6 +18,11 @@
 
 The **Smart AI Receptionist** is a production-grade, real-time voice AI system that answers incoming phone calls, understands caller intent, detects emotional distress, and either resolves queries autonomously or escalates to a human agent. It is built on a dual-server architecture — a **FastAPI voice layer** for real-time telephony and a **Django API** as the business logic backbone — bridged by the **OpenAI Agents SDK**.
 
+In this final implementation, we also integrated two core data-science capabilities required by the course:
+
+- A **DVC-orchestrated ML pipeline** that trains post-call classifiers (`category`, `sentiment`, `outcome`) using TF-IDF + Logistic Regression and produces reproducible artifacts.
+- A **Build Knowledge** workflow that collects business data, generates embeddings, stores vectors with metadata, and retrieves top-k business facts at runtime for grounded responses.
+
 > **The system doesn't just talk. It listens, understands, classifies, and decides.**
 
 ---
@@ -26,9 +31,9 @@ The **Smart AI Receptionist** is a production-grade, real-time voice AI system t
 
 1. [System Architecture Overview](#system-architecture-overview)
 2. [Deliverable 1 — NLP Model for Query Processing](#deliverable-1--nlp-model-for-query-processing)
-3. [Deliverable 2 — Hybrid Post-Call Classification (LLM + ML)](#deliverable-2--hybrid-post-call-classification-llm--ml)
-4. [Deliverable 3 — Distress Detection & Escalation Model](#deliverable-3--distress-detection--escalation-model)
-5. [Deliverable 4 — Response Generator & Off-Ramp Logic](#deliverable-4--response-generator--off-ramp-logic)
+3. [Deliverable 2 — Multi-Agent Handoffs & Tool Execution](#deliverable-2--multi-agent-handoffs--tool-execution)
+4. [Deliverable 3 — Post-Call Classification (ML)](#deliverable-3--post-call-classification-ml)
+5. [Deliverable 4 — Build Knowledge Base (Embeddings + Vector Search)](#deliverable-4--build-knowledge-base-embeddings--vector-search)
 6. [Deliverable 5 — DVC-Orchestrated ML Pipeline](#deliverable-5--dvc-orchestrated-ml-pipeline)
 7. [Technology Stack](#technology-stack)
 8. [Data Flow: End-to-End Call Lifecycle](#data-flow-end-to-end-call-lifecycle)
@@ -57,7 +62,7 @@ Caller (Phone)
 [ PostgreSQL / Data Store ]
 ```
 
-![System Architecture Diagram](./Architecture.png)
+System Architecture Diagram
 
 The system operates as two cooperating servers:
 
@@ -144,182 +149,119 @@ An handler is used to collect the NER entities and saved to our database. see co
 
 ---
 
-## Deliverable 2 — Hybrid Post-Call Classification (LLM + ML)
+## Deliverable 2 — Multi-Agent Handoffs & Tool Execution
 
 ### What It Does
 
-Our production flow now supports **two analysis backends** for post-call classification after the call ends:
+The running system is not a single monolithic model. A **triage “AI Receptionist”** agent (OpenAI Agents SDK) routes the caller, then **hands off** to specialized sub-agents. Each sub-agent can invoke **Django-backed tools** for real CRUD and lookups so answers stay consistent with the database.
 
-- **LLM backend (`openai`)** for rich semantic analysis
-- **ML backend (`ml`)** using locally trained sklearn models
+### Agent Handoffs (Implemented)
 
-Both backends return the same structured fields and populate:
+
+| From         | Handoff to           | When                                                                                        |
+| ------------ | -------------------- | ------------------------------------------------------------------------------------------- |
+| Receptionist | **FAQ Agent**        | Business hours, location, services, general Q&A                                             |
+| Receptionist | **Booking Agent**    | New appointments, availability                                                              |
+| Receptionist | **Reschedule Agent** | Reschedule: uses `look_up_appointment` to find the booking, then guides next steps in voice |
+| Receptionist | **Cancel Agent**     | Cancel flow (guided in voice; confirms details before end of call)                          |
+| (As needed)  | **Customer Agent**   | Customer profile / phone-linked context (`get_customer_information`)                        |
+
+
+The receptionist’s job is to **classify intent** and **transfer** to the right specialist instead of one prompt trying to do everything.
+
+### Representative Tool Surface (Django / FastAPI)
+
+Tools are defined with `@function_tool` in `ai_service/tools/` and call the booking/business layer using `CallContext` (`business_id`, `caller_number`, etc.). In our codebase, the **Booking** and **FAQ** agents bundle the richest tool sets; **Reschedule** uses `look_up_appointment`; **Cancel** is instruction-driven in the current implementation.
+
+
+| Area       | Tool / behavior                                                                                     | Role                                                               |
+| ---------- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| FAQ        | `get_business_information`, `get_service_information`, `search_business_knowledge`                  | Grounded business and policy answers                               |
+| Booking    | `check_availability`, `look_up_appointment`, `get_staff_information`, `search_services_by_keywords` | Availability, lookup, service discovery                            |
+| Reschedule | `look_up_appointment`                                                                               | Find the caller’s existing appointment before proposing a new time |
+| Customer   | `get_customer_information`                                                                          | Link caller phone to a client record when needed                   |
+| Human      | `transfer_to_human` (where enabled)                                                                 | Escalation to a live number                                        |
+
+
+This matches the “handoff to reschedule, `look_up_appointment`, …” story: specialized agents route the call, and tools return **authoritative** data from Django instead of guesswork in the prompt alone.
+
+### Why This Design
+
+- **Separation of concerns** — each agent has a smaller prompt and fewer failure modes
+- **Auditability** — tool calls are inspectable; outcomes map to real DB state
+- **Scalability** — new services or tools can be added without rewriting the whole voice stack
+
+---
+
+## Deliverable 3 — Post-Call Classification (ML)
+
+### What It Does
+
+After a call ends, we classify the conversation and persist structured fields on `CallSession`. The primary course deliverable here is **machine learning inference** using locally trained **scikit-learn** models (`TF-IDF` + `LogisticRegression`), loaded at runtime as `post_call_models.joblib`.
+
+An optional **LLM** backend (`CALL_ANALYSIS_BACKEND=openai`) can be used for richer summaries; the **ML** path (`CALL_ANALYSIS_BACKEND=ml`) avoids an extra LLM call for classification.
+
+### Outputs
 
 - `outcome` (`successful` | `unsuccessful` | `unknown`)
 - `sentiment` (`positive` | `negative` | `neutral`)
 - `category` (`make_appointment` | `cancel_appointment` | `reschedule_appointment` | `ask_question` | `unknown`)
-- `summary`
+- `summary` (extractive in the ML path; LLM-generated when using the OpenAI backend)
 
 ```python
+# ML inference path (simplified)
 outcome = analyze_conversation_ml(conversation_transcript)
 ```
 
 ---
 
-## Deliverable 3 — Distress Detection & Escalation Model
+## Deliverable 4 — Build Knowledge Base (Embeddings + Vector Search)
 
-### What It Does
+### Objective
 
-The distress detection model is a **parallel, always-running analysis layer** that monitors every caller utterance for signals of emotional distress, urgency, or vulnerability — independent of intent classification. When triggered, it overrides the standard response pathway and activates an escalation protocol.
+We build a business-specific knowledge base so the receptionist can answer factual questions from current business data (services, hours, policies, contact, and FAQs) instead of relying only on prompt memory.
 
-### Signal Detection Layers
+### Build Pipeline
 
-**Lexical Signals — What words are used**
+1. **Collect business data** from Django models and API endpoints.
+2. **Normalize and chunk** text into retrieval-friendly documents.
+3. **Generate embeddings** for each chunk.
+4. **Store vectors + metadata** in a vector index.
+5. **Retrieve top-k context** at runtime and inject into the agent/tool response.
 
-- High-urgency vocabulary: "emergency," "crisis," "can't breathe," "help me"
-- Frustration markers: "this is unacceptable," "I've called ten times," "nobody helps"
-- Vulnerability language: "I don't know what to do," "I'm at my wit's end"
+### Data Sources
 
-**Acoustic / Prosodic Signals — How it's said**
-Via the OpenAI Realtime API's audio stream analysis:
+- Business profile and contact details
+- Opening hours and special hours
+- Active services, prices, durations
+- Appointment and cancellation policies
+- Frequently asked questions and curated answers
 
-- Speech rate acceleration (talking faster than baseline)
-- Elevated pitch / vocal tension
-- Irregular pauses or voice breaks
-- Crying or heavy breathing detected in audio stream
-
-**Sentiment & Emotional State Tracking**
-A rolling sentiment window tracks emotional trajectory across the conversation:
-
-```
-Turn 1:  Sentiment = Neutral (0.5)
-Turn 2:  Sentiment = Mildly Frustrated (0.35)
-Turn 3:  Sentiment = Distressed (0.15)  → ESCALATION THRESHOLD CROSSED
-```
-
-### Escalation Decision Matrix
-
-
-| Distress Score | Sentiment Score | Wait Time | Action                                   |
-| -------------- | --------------- | --------- | ---------------------------------------- |
-| < 0.3          | > 0.5           | Any       | Normal AI response                       |
-| 0.3 – 0.6      | 0.3 – 0.5       | < 5 min   | Empathetic response + offer human        |
-| > 0.6          | < 0.3           | Any       | **Hard escalation: live transfer**       |
-| > 0.8          | Any             | Any       | **Emergency escalation: priority queue** |
-
-
-### Escalation Activation
+### Runtime Retrieval Flow
 
 ```python
-async def check_distress(transcript: str, audio_features: dict, history: list) -> EscalationDecision:
-    distress_score = distress_model.predict(transcript, audio_features)
-    sentiment_trajectory = sentiment_tracker.get_trajectory(history)
-    
-    if distress_score > HARD_ESCALATION_THRESHOLD:
-        await trigger_live_transfer(priority="HIGH")
-        return EscalationDecision(action="HARD_HANDOFF", reason="distress_detected")
-    elif distress_score > SOFT_ESCALATION_THRESHOLD:
-        return EscalationDecision(action="OFFER_HUMAN", reason="elevated_distress")
-    
-    return EscalationDecision(action="CONTINUE", reason="within_normal_range")
-```
-
-This model runs **asynchronously and in parallel** with the main response generation — it never adds latency to the conversation but can interrupt the response pipeline at any point.
-
----
-
-## Deliverable 4 — Response Generator & Off-Ramp Logic(this is not yet implemented on our project)
-
-### What It Does
-
-The response layer is where the AI formulates its reply and decides which **off-ramp pathway** to execute — whether to continue the conversation, transfer to a human, schedule a callback, or gracefully end the call.
-
-### Response Generation
-
-The response generator uses the **OpenAI Realtime API** for sub-200ms, streaming text-to-speech output, ensuring natural conversational pacing. Responses are shaped by:
-
-- **Tone calibration** — Professional, warm, and empathetic; adjusted dynamically based on distress signals
-- **Template anchoring** — Core information (hours, policies, procedures) is retrieved from Django via tool calls, ensuring factual accuracy
-- **Persona consistency** — The agent maintains a consistent name, personality, and communication style across the entire call
-
-```python
-# Response shaping based on context
-def shape_response(intent_result, distress_level, tool_output):
-    tone = "empathetic" if distress_level > 0.4 else "professional"
-    return ResponseConfig(
-        tone=tone,
-        max_tokens=150,           # Keep responses concise for voice
-        include_confirmation=True, # Repeat key info back to caller
-        offer_followup=True
+def search_knowledge_base(query: str, business_id: str) -> list[dict]:
+    q_vec = embed(query)
+    matches = vector_store.similarity_search(
+        vector=q_vec,
+        top_k=5,
+        filters={"business_id": business_id, "is_active": True},
     )
+    return [m.payload for m in matches]
 ```
 
-### Off-Ramp Logic
+### Why It Matters
 
-Off-ramps are the **exit pathways** out of the AI conversation. Each off-ramp is a deliberate, structured transition with full context preservation so the receiving party (human agent, callback system, CRM) inherits the complete conversation state.
+- Improves factual accuracy and consistency
+- Supports business-specific personalization
+- Reduces hallucinations on policy/price questions
+- Creates an auditable path for knowledge updates (re-embed on data changes)
 
-**Off-Ramp 1: Self-Resolution**
-The most common pathway. The AI fully handles the request and ends the call gracefully.
+### Implementation Status (for Presentation)
 
-```
-Caller: "What are your opening hours?"
-AI: Retrieves hours via tool call → Answers → Confirms → "Is there anything else I can help you with?" → Call concluded
-```
-
-**Off-Ramp 2: Warm Transfer (Soft Handoff)**
-The AI has partially resolved the query but determines a human should complete it. The AI briefs the human agent with a summary before connecting.
-
-```
-Trigger conditions: Caller explicitly requests human | Complex billing dispute | Unanswered after 2 clarification attempts
-Action: AI says "I'm going to connect you with one of our specialists — I'll let them know what we've discussed" → Twilio conference join → Summary pushed to agent CRM screen
-```
-
-**Off-Ramp 3: Scheduled Callback**
-When wait times are long or caller prefers not to wait. The AI collects callback details and creates a task in Django.
-
-```
-Action: Collect name, phone, preferred time → POST /api/callbacks/ in Django → Confirm back to caller → Graceful end
-```
-
-**Off-Ramp 4: Emergency Escalation**
-Triggered exclusively by the distress detection model. Bypasses all queues.
-
-```
-Action: Immediate priority transfer → Alert pushed to supervisor → Full transcript + audio clip flagged for review → Compliance log entry created
-```
-
-**Off-Ramp 5: Graceful Deflection**
-For out-of-scope requests (legal, medical advice, competitor comparisons). The AI declines politely and redirects.
-
-```
-Trigger: Out-of-scope intent detected with confidence > 0.85
-Action: "That's not something I'm able to help with, but here's how you can reach the right resource..." → Provide contact info → End call
-```
-
-### Off-Ramp State Machine
-
-```
-                    ┌─────────────────┐
-                    │   Conversation  │
-                    │     Active      │
-                    └────────┬────────┘
-                             │
-              ┌──────────────┼──────────────┐
-              │              │              │
-      Resolved?        Distress?      Unresolvable?
-              │              │              │
-              ▼              ▼              ▼
-     Self-Resolution   Emergency      Warm Transfer
-          (End)       Escalation      or Deflection
-                         (Transfer)      (Redirect)
-                                │
-                         Callback
-                         Offered?
-                                │
-                         Scheduled
-                         Callback
-                           (End)
-```
+- **Current status:** In progress (architecture and retrieval design completed)
+- **Completed:** Knowledge sources identified, retrieval flow designed, and tool contract aligned with `search_business_knowledge` / RAG direction
+- **Next step:** Ingestion job to chunk business data and refresh embeddings on schedule or on publish
 
 ---
 
@@ -384,6 +326,12 @@ This architecture separates:
 
 ---
 
+## Future work — Distress detection & escalation
+
+This is **not** part of the five numbered deliverables above, but it remains a natural extension: a parallel classifier over transcripts (and optionally audio features) to trigger safer handoffs earlier in the call.
+
+---
+
 ## Technology Stack
 
 
@@ -395,6 +343,7 @@ This architecture separates:
 | **LLM / Voice AI**       | GPT-5-mini / OpenAI Realtime API | Speech understanding, response generation, fallback analysis  |
 | **Business Logic API**   | Django REST Framework            | Data access, CRM integration, tool endpoints                  |
 | **Database**             | PostgreSQL                       | Conversation logs, escalation records, callbacks              |
+| **Knowledge Retrieval**  | Embeddings + Vector Search       | Semantic search over business knowledge chunks                |
 | **ML Training Pipeline** | DVC + params.yaml                | Reproducible model training and artifact tracking             |
 | **Post-Call ML Models**  | scikit-learn (TF-IDF + Logistic) | Category, sentiment, and outcome prediction                   |
 | **Artifacts**            | joblib + JSON metrics            | Serialized models and evaluation outputs                      |
@@ -423,21 +372,25 @@ This architecture separates:
    Transcript → Intent classifier → Entity extractor → Slot filler
    Parallel: Distress detector monitors every utterance
 
-5. TOOL EXECUTION
+5. KNOWLEDGE RETRIEVAL (RAG)
+   Query + business_id → embedding → vector similarity search (top-k)
+   Retrieved business facts are passed into the answering tool/agent context
+
+6. TOOL EXECUTION
    Agent decides to call a tool → FastAPI relays → Django API
    e.g., GET /api/appointments/?phone=+16135550101
    Django queries DB → Returns structured result → Agent uses in response
 
-6. RESPONSE SYNTHESIS
+7. RESPONSE SYNTHESIS
    GPT-4o generates response → Text-to-speech → Audio stream back to Twilio → Caller hears response
 
-7. CALL END + POST-CALL ANALYSIS
+8. CALL END + POST-CALL ANALYSIS
    Twilio stop event received → FastAPI finalizes session
    Transcript is analyzed using selected backend:
    - LLM backend (`CALL_ANALYSIS_BACKEND=openai`)
    - ML backend (`CALL_ANALYSIS_BACKEND=ml`)
 
-8. PERSISTENCE + NOTIFICATION
+9. PERSISTENCE + NOTIFICATION
    outcome/sentiment/category/summary stored in Django `CallSession`
    Manager notification dispatched with categorized summary
 ```
