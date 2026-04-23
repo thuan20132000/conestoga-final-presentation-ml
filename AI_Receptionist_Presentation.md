@@ -26,12 +26,13 @@ The **Smart AI Receptionist** is a production-grade, real-time voice AI system t
 
 1. [System Architecture Overview](#system-architecture-overview)
 2. [Deliverable 1 — NLP Model for Query Processing](#deliverable-1--nlp-model-for-query-processing)
-3. [Deliverable 2 — LLM Backbone with Deep Learning Classifier Head](#deliverable-2--llm-backbone-with-deep-learning-classifier-head)
+3. [Deliverable 2 — Hybrid Post-Call Classification (LLM + ML)](#deliverable-2--hybrid-post-call-classification-llm--ml)
 4. [Deliverable 3 — Distress Detection & Escalation Model](#deliverable-3--distress-detection--escalation-model)
 5. [Deliverable 4 — Response Generator & Off-Ramp Logic](#deliverable-4--response-generator--off-ramp-logic)
-6. [Technology Stack](#technology-stack)
-7. [Data Flow: End-to-End Call Lifecycle](#data-flow-end-to-end-call-lifecycle)
-8. [Deployment & Infrastructure](#deployment--infrastructure)
+6. [Deliverable 5 — DVC-Orchestrated ML Pipeline](#deliverable-5--dvc-orchestrated-ml-pipeline)
+7. [Technology Stack](#technology-stack)
+8. [Data Flow: End-to-End Call Lifecycle](#data-flow-end-to-end-call-lifecycle)
+9. [Deployment & Infrastructure](#deployment--infrastructure)
 
 ---
 
@@ -146,112 +147,36 @@ An handler is used to collect the NER entities and saved to our database. see co
 
 ---
 
-## Deliverable 2 — LLM Backbone with Deep Learning Classifier Head
+## Deliverable 2 — Hybrid Post-Call Classification (LLM + ML)
 
 ### What It Does
 
-The core reasoning engine is **GPT-4o** (via the OpenAI Agents SDK), augmented with a **classifier head** — a specialized classification layer that takes the LLM's contextual understanding and maps it to discrete decision categories.
+Our production flow now supports **two analysis backends** for post-call classification after the call ends:
 
-### The LLM Backbone
+- **LLM backend (`openai`)** for rich semantic analysis
+- **ML backend (`ml`)** using locally trained sklearn models
 
-The **OpenAI Agents SDK** provides the orchestration framework:
+Both backends return the same structured fields and populate:
 
-- **Agents** are LLM instances configured with system instructions, available tools, and handoff targets.
-- **Tools** are Python functions the agent can invoke — these call the Django API endpoints.
-- **Handoffs** allow one agent to transfer the conversation to a specialized sub-agent (e.g., a billing specialist agent, an appointment agent).
+- `outcome` (`successful` | `unsuccessful` | `unknown`)
+- `sentiment` (`positive` | `negative` | `neutral`)
+- `category` (`make_appointment` | `cancel_appointment` | `reschedule_appointment` | `ask_question` | `unknown`)
+- `summary`
 
 ```python
-# Agent definition using the OpenAI Agents SDK
-"""AI Receptionist — triage agent that hands off to specialized sub-agents."""
-
-from agents.realtime import RealtimeAgent, realtime_handoff
-
-from ai_service.agents.booking_agent import create_booking_agent
-from ai_service.agents.customer_agent import customer_agent
-from ai_service.agents.faq_agent import faq_agent
-from ai_service.agents.reschedule_agent import create_reschedule_agent
-from ai_service.agents.cancel_agent import create_cancel_agent
-from ai_service.tools.context import CallContext
-from ai_service.tools.transfer_tools import TRANSFER_TOOLS
-
-
-def create_receptionist_agent(instructions: str, caller_number: str) -> RealtimeAgent[CallContext]:
-    """Create the triage receptionist agent with handoffs to sub-agents.
-
-    The receptionist greets the caller, determines intent, and hands off to:
-    - FAQ Agent: business hours, location, services info
-    - Booking Agent: check availability, look up appointments, collect booking details
-    - Customer Agent: customer lookup, registration
-    - Reschedule Agent: appointment rescheduling
-    - Cancel Agent: appointment cancellation
-
-    Sub-agents can also hand off to each other as needed.
-
-    Args:
-        instructions: System prompt from AIConfiguration.prompt for this business.
-        caller_number: Phone number of the caller.
-    """
-    # Create reschedule agent with caller's phone number baked in
-    reschedule_agent = create_reschedule_agent(caller_number)
-
-    # Create booking agent with caller's phone number baked in
-    booking_agent = create_booking_agent(caller_number)
-
-
-    customer_agent.handoffs = [
-        realtime_handoff(
-            faq_agent,
-            tool_description_override="Transfer to the FAQ Agent for business or service questions.",
-        ),
-    ]
-
-    reschedule_agent.handoffs = [
-        realtime_handoff(
-            faq_agent,
-            tool_description_override="Transfer to the FAQ Agent for business or service questions.",
-        ),
-    ]
-    
-    return RealtimeAgent[CallContext](
-        name="AI Receptionist",
-        instructions=instructions,
-        tools=TRANSFER_TOOLS,
-        handoffs=[
-            realtime_handoff(
-                faq_agent,
-                tool_description_override="Transfer to the FAQ Agent for business hours, location, or service details or appointment lookup.",
-            ),
-            realtime_handoff(
-                reschedule_agent,
-                tool_description_override="Transfer to the Reschedule Agent for appointment rescheduling.",
-            ),
-            realtime_handoff(
-                booking_agent,
-                tool_description_override="Transfer to the Booking Agent for appointment booking and service details.",
-            ),
-        ],
-    )
-
+# ai_service/services/call_session_service.py (simplified)
+if settings.call_analysis_backend == "ml":
+    outcome = analyze_conversation_ml(conversation_transcript)
+else:
+    outcome = await self._openai_service.analyze_conversation(conversation_transcript)
 ```
 
-### The Deep Learning Classifier Head
+### Why This Design
 
-On top of the LLM's raw output, a **classifier head** produces probabilistic category scores. This is a lightweight neural network layer that:
-
-- Takes the LLM's hidden state / embedding as input
-- Outputs a **probability distribution** over action categories
-- Makes the decision pipeline **auditable and deterministic** rather than solely prompt-dependent
-
-**Classification Categories:**
-
-
-| Category          | Description                            | Action Triggered             |
-| ----------------- | -------------------------------------- | ---------------------------- |
-| `SELF_SERVE`      | Query can be resolved by the AI        | Continue AI conversation     |
-| `SOFT_HANDOFF`    | Query is complex but not urgent        | Queue for callback           |
-| `HARD_HANDOFF`    | Caller requests human or is distressed | Live transfer to agent       |
-| `DISTRESS`        | Emotional distress detected            | Emergency escalation pathway |
-| `SPAM / ROBOCALL` | Automated caller detected              | Graceful termination         |
+- Keeps the real-time voice path lightweight
+- Enables **predictive ML capability** required by the course
+- Allows A/B comparison between LLM and classic ML results
+- Improves transparency for model behavior and reproducibility
 
 
 ---
@@ -413,6 +338,67 @@ Action: "That's not something I'm able to help with, but here's how you can reac
 
 ---
 
+## Deliverable 5 — DVC-Orchestrated ML Pipeline
+
+### Pipeline Objective
+
+We implemented a reproducible ML pipeline for post-call analysis using **DVC**, aligned with course requirements for software engineering + data science integration.
+
+### Implemented Assets
+
+- `dvc.yaml` — defines stage `train_post_call_models`
+- `params.yaml` — model/training parameters (`test_size`, `max_features`, `ngram_max`, etc.)
+- `data/call_intent/training.csv` — labeled training dataset
+- `ml/scripts/train_intent_model.py` — training entrypoint
+- `ml/artifacts/post_call_models.joblib` — serialized sklearn pipelines
+- `ml/artifacts/metrics.json` — classification metrics output
+
+### Stage Definition
+
+```yaml
+stages:
+  train_post_call_models:
+    cmd: python ml/scripts/train_intent_model.py
+    deps:
+      - ml/scripts/train_intent_model.py
+      - data/call_intent/training.csv
+    params:
+      - params.yaml:
+          - train_intent
+    outs:
+      - ml/artifacts/post_call_models.joblib
+      - ml/artifacts/metrics.json
+```
+
+### Model Design
+
+We train 3 TF-IDF + Logistic Regression pipelines:
+
+1. `category` classifier
+2. `sentiment` classifier
+3. `outcome` classifier
+
+This gives a practical, explainable baseline with fast inference and low operational cost.
+
+### Reproducibility Commands
+
+```bash
+# Run pipeline
+dvc repro
+
+# Check stage/output status
+dvc status
+```
+
+### Engineering Benefit
+
+This architecture separates:
+
+- **Training time** (offline, versioned, reproducible)
+- **Inference time** (online, low-latency, deterministic)
+
+---
+
 ## Technology Stack
 
 
@@ -421,9 +407,12 @@ Action: "That's not something I'm able to help with, but here's how you can reac
 | **Telephony**          | Twilio Voice + ConversationRelay | PSTN connection, audio streaming                 |
 | **Voice Layer Server** | FastAPI + Uvicorn                | Real-time WebSocket management                   |
 | **AI Orchestration**   | OpenAI Agents SDK                | Agent definitions, tool calls, handoffs          |
-| **LLM / Voice AI**     | GPT-4o Realtime API              | Speech understanding + response generation       |
+| **LLM / Voice AI**     | GPT-5-mini / OpenAI Realtime API | Speech understanding, response generation, fallback analysis |
 | **Business Logic API** | Django REST Framework            | Data access, CRM integration, tool endpoints     |
 | **Database**           | PostgreSQL                       | Conversation logs, escalation records, callbacks |
+| **ML Training Pipeline** | DVC + params.yaml              | Reproducible model training and artifact tracking |
+| **Post-Call ML Models** | scikit-learn (TF-IDF + Logistic) | Category, sentiment, and outcome prediction      |
+| **Artifacts**            | joblib + JSON metrics          | Serialized models and evaluation outputs         |
 | **NLP Utilities**      | SpaCy / HuggingFace Transformers | Entity extraction, intent classification support |
 | **Distress Analysis**  | Custom PyTorch classifier        | Sentiment + distress scoring                     |
 | **Deployment**         | Docker + Nginx                   | Containerised dual-server deployment             |
@@ -457,12 +446,15 @@ Action: "That's not something I'm able to help with, but here's how you can reac
 6. RESPONSE SYNTHESIS
    GPT-4o generates response → Text-to-speech → Audio stream back to Twilio → Caller hears response
 
-7. OFF-RAMP EVALUATION
-   After each turn: Is query resolved? | Distress threshold crossed? | Escalation requested?
-   → Execute appropriate off-ramp pathway
+7. CALL END + POST-CALL ANALYSIS
+   Twilio stop event received → FastAPI finalizes session
+   Transcript is analyzed using selected backend:
+   - LLM backend (`CALL_ANALYSIS_BACKEND=openai`)
+   - ML backend (`CALL_ANALYSIS_BACKEND=ml`)
 
-8. CALL CONCLUSION
-   Full transcript + metadata → Saved to Django → Compliance log created
+8. PERSISTENCE + NOTIFICATION
+   outcome/sentiment/category/summary stored in Django `CallSession`
+   Manager notification dispatched with categorized summary
 ```
 
 ---
@@ -508,6 +500,9 @@ NGROK_URL / DOMAIN      → Public WebSocket endpoint for Twilio
 - **Stateful multi-turn conversations** — context is maintained across all turns within a call session
 - **Full audit trail** — every transcript, tool call, escalation decision, and off-ramp action is logged to Django with timestamps
 - **Graceful degradation** — if the AI is uncertain, it defaults to offering a human rather than making a wrong decision with confidence
+- **Hybrid analysis backend** — switch between LLM and local ML (`CALL_ANALYSIS_BACKEND`) without code changes
+- **DVC reproducibility** — training pipeline, params, and outputs are structured for repeatable experiments
+- **Efficient post-call inference** — TF-IDF + Logistic models provide low-cost classification after call completion
 
 ---
 
