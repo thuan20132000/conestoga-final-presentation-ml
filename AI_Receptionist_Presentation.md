@@ -161,23 +161,12 @@ Both backends return the same structured fields and populate:
 - `summary`
 
 ```python
-# ai_service/services/call_session_service.py (simplified)
-if settings.call_analysis_backend == "ml":
-    outcome = analyze_conversation_ml(conversation_transcript)
-else:
-    outcome = await self._openai_service.analyze_conversation(conversation_transcript)
+outcome = analyze_conversation_ml(conversation_transcript)
 ```
-
-### Why This Design
-
-- Keeps the real-time voice path lightweight
-- Enables **predictive ML capability** required by the course
-- Allows A/B comparison between LLM and classic ML results
-- Improves transparency for model behavior and reproducibility
 
 ---
 
-## Deliverable 3 — Distress Detection & Escalation Model(this is not impleted yet on our project)
+## Deliverable 3 — Distress Detection & Escalation Model
 
 ### What It Does
 
