@@ -57,7 +57,7 @@ Caller (Phone)
 [ PostgreSQL / Data Store ]
 ```
 
-System Architecture Diagram
+![System Architecture Diagram](./Architecture.png)
 
 The system operates as two cooperating servers:
 
