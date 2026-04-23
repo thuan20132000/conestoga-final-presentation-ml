@@ -6,6 +6,8 @@ from typing import Any, Dict, Optional
 from asgiref.sync import sync_to_async
 from django.utils import timezone
 
+from ai_service.config import settings
+from ai_service.services.conversation_ml_service import analyze_conversation_ml
 from ai_service.services.openai_service import OpenAIService
 from client.models import Client
 from notifications.models import Notification
@@ -68,9 +70,12 @@ class CallSessionService:
 
         if conversation_transcript:
             try:
-                outcome = await self._openai_service.analyze_conversation(
-                    conversation_transcript
-                )
+                if settings.call_analysis_backend == "ml":
+                    outcome = analyze_conversation_ml(conversation_transcript)
+                else:
+                    outcome = await self._openai_service.analyze_conversation(
+                        conversation_transcript
+                    )
                 update_kwargs["outcome"] = outcome.get("outcome", "unknown")
                 update_kwargs["sentiment"] = outcome.get("sentiment", "neutral")
                 update_kwargs["transcript_summary"] = outcome.get("summary", "Unknown")

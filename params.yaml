@@ -1,0 +1,7 @@
+# Used by DVC and ml/scripts/train_intent_model.py
+train_intent:
+  random_state: 42
+  test_size: 0.2
+  max_features: 5000
+  ngram_max: 2
+  max_iter: 500

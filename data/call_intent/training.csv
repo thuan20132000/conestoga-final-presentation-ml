@@ -1,0 +1,16 @@
+text,category,sentiment,outcome
+"user: Hi I want to book a manicure for next Tuesday. assistant: I can help with that.","make_appointment",positive,successful
+"user: Can I get a pedicure this Friday?. assistant: Let me find a slot.","make_appointment",positive,successful
+"user: I need to schedule a haircut. assistant: What day works?","make_appointment",neutral,successful
+"user: Book me a massage tomorrow morning. assistant: Checking availability.","make_appointment",positive,unknown
+"user: I want to cancel my appointment from last week. assistant: I can help cancel.","cancel_appointment",neutral,successful
+"user: Please cancel my booking I cannot make it. assistant: I will cancel it.","cancel_appointment",negative,successful
+"user: Remove my name from the schedule for March 3. assistant: One moment.","cancel_appointment",negative,successful
+"user: I need to move my Saturday appointment to Sunday. assistant: I can reschedule.","reschedule_appointment",neutral,successful
+"user: Reschedule my nail appointment to a later time. assistant: Which time?","reschedule_appointment",positive,successful
+"user: Change my 2pm to 4pm please. assistant: Checking the calendar.","reschedule_appointment",neutral,unknown
+"user: What are your hours this week. assistant: We are open 9 to 6.","ask_question",positive,successful
+"user: Do you do gel nails and how much. assistant: Yes here are services.","ask_question",neutral,successful
+"user: Where are you located. assistant: We are downtown.","ask_question",neutral,successful
+"user: Um hello. assistant: How can I help.","unknown",neutral,unknown
+"user: garbled static noise. assistant: I did not catch that.","unknown",negative,unsuccessful

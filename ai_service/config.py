@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # Conversation settings
     max_conversation_turns: int = int(os.getenv("MAX_CONVERSATION_TURNS", "10"))
     conversation_timeout: int = int(os.getenv("CONVERSATION_TIMEOUT", "300"))  # 5 minutes
+
+    # Post-call analysis: "openai" (LLM) or "ml" (sklearn pipelines from dvc repro)
+    call_analysis_backend: str = os.getenv("CALL_ANALYSIS_BACKEND", "openai")
+    call_ml_model_path: str = os.getenv(
+        "CALL_ML_MODEL_PATH", "ml/artifacts/post_call_models.joblib"
+    )
     
     # Audio settings
     audio_sample_rate: int = int(os.getenv("AUDIO_SAMPLE_RATE", "16000"))

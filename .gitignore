@@ -71,6 +71,10 @@ coverage.xml
 # pyenv
 .python-version
 
+# Trained post-call models (regenerate: dvc repro)
+/ml/artifacts/post_call_models.joblib
+/ml/artifacts/metrics.json
+
 
 # SQLite
 *.sqlite3

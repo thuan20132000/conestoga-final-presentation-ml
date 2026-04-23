@@ -1,0 +1,14 @@
+# Post-call ML pipeline. First-time setup: pip install dvc && dvc init
+# Regenerate models: dvc repro
+stages:
+  train_post_call_models:
+    cmd: python ml/scripts/train_intent_model.py
+    deps:
+      - ml/scripts/train_intent_model.py
+      - data/call_intent/training.csv
+    params:
+      - params.yaml:
+          - train_intent
+    outs:
+      - ml/artifacts/post_call_models.joblib
+      - ml/artifacts/metrics.json

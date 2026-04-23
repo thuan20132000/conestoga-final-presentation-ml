@@ -1,0 +1,2 @@
+# DVC and optional ML dev tools (pipeline orchestration). Install with: pip install -r requirements-ml.txt
+dvc==3.59.0
