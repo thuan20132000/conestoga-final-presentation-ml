@@ -12,6 +12,8 @@ This repository powers our CSCN8010 final project: a real-time AI receptionist t
 
 Architecture reference: `AI_Receptionist_Presentation.md` and `Architecture.png`.
 
+![System Architecture](./Architecture.png)
+
 ## Core Capabilities
 
 - Real-time inbound call handling via Twilio
