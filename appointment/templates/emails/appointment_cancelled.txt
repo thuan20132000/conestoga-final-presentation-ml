@@ -1,0 +1,19 @@
+Appointment Cancelled - {{ business_name }}
+
+Hi {{ client_name|default:"there" }},
+
+Your appointment has been cancelled.{% if business_phone %} Please contact us at {{ business_phone }} if you have any questions.{% endif %}
+
+Cancelled Appointment Details:
+- Appointment #: {{ appointment_id }}
+- Date & Time: {{ start_at }}
+
+{% if services %}Services:
+{% for service in services %}- {{ service.service_name }}{% if service.staff_name %} — {{ service.staff_name }}{% endif %} - ${{ service.price }}
+{% endfor %}{% endif %}
+{% if total_price %}Total: ${{ total_price }}
+{% endif %}
+{% if business_address %}{{ business_address }}
+{% endif %}{% if business_phone %}Have questions? Contact us: {{ business_phone }}{% endif %}
+
+Thank you for choosing {{ business_name }}!

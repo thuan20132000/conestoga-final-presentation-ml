@@ -1,0 +1,14 @@
+Thank you for your feedback, {{ submitted_by_name }}!
+
+We've received your feedback for {{ business_name }} and our team will review it shortly.
+
+Your Feedback:
+- Category: {{ category }}
+- Subject: {{ subject }}
+- Message: {{ message }}
+
+We'll get back to you once our team has reviewed your feedback. In the meantime, if you have any additional details to share, feel free to reply to this email.
+
+---
+Need help? Reply to this email or visit our support centre.
+© Bookngon. All rights reserved.

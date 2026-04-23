@@ -1,0 +1,17 @@
+Receipt from {{ business_name }}
+
+Hi {{ client_name|default:"there" }},
+Thank you for your payment. Here is your receipt.
+
+--- Appointment Details ---
+Date: {{ appointment_date }}
+Payment Method: {{ payment_method_name }}
+Transaction ID: {{ payment_id }}
+
+{% if services %}--- Services ---
+{% for service in services %}{{ service.service_name }}{% if service.staff_name %} - {{ service.staff_name }}{% endif %}: ${{ service.price }}
+{% endfor %}{% endif %}
+{% if processing_fee and processing_fee != "0.00" %}Processing Fee: ${{ processing_fee }}
+{% endif %}Total Paid: ${{ total }} {{ currency }}
+
+Thank you for choosing {{ business_name }}.

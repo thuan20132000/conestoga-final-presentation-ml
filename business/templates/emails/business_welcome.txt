@@ -1,0 +1,16 @@
+Welcome to Bookngon, {{ owner_name }}!
+
+Your business {{ business_name }} has been successfully registered on Bookngon.
+You're all set to start managing appointments, staff, and clients from your dashboard.
+
+Get started in 3 easy steps:
+
+1. Customize your services – add your service menu, pricing, and durations.
+2. Set up your staff – invite team members and assign roles.
+3. Share your booking link – let clients book online 24/7.
+
+Go to your dashboard: {{ dashboard_url }}
+
+---
+Need help? Reply to this email or visit our support centre.
+© Bookngon. All rights reserved.

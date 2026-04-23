@@ -1,0 +1,131 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Welcome to Bookngon – {{ business_name }}</title>
+    <style type="text/css">
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      table {
+        border-collapse: collapse;
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      @media only screen and (max-width: 600px) {
+        .container { width: 100% !important; }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4; padding: 40px 0;">
+      <tr>
+        <td align="center">
+          <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+
+            <!-- Header -->
+            <tr>
+              <td style="background-color: #1a1a1a; padding: 32px; text-align: center;">
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: 0.5px;">Bookngon</h1>
+                <p style="margin: 8px 0 0 0; color: #aaaaaa; font-size: 14px;">Your booking platform is ready</p>
+              </td>
+            </tr>
+
+            <!-- Greeting -->
+            <tr>
+              <td style="padding: 36px 32px 0 32px;">
+                <p style="margin: 0; color: #333333; font-size: 18px; font-weight: 600;">Welcome, {{ owner_name }}! 🎉</p>
+                <p style="margin: 12px 0 0 0; color: #555555; font-size: 15px; line-height: 1.7;">
+                  Your business <strong>{{ business_name }}</strong> has been successfully registered on Bookngon.
+                  You're all set to start managing appointments, staff, and clients from your dashboard.
+                </p>
+              </td>
+            </tr>
+
+            <!-- Business Details -->
+            <tr>
+              <td style="padding: 24px 32px 0 32px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9f9f9; border-radius: 8px; border: 1px solid #eeeeee;">
+                  <tr>
+                    <td style="padding: 20px 20px 0 20px;">
+                      <p style="margin: 0 0 16px 0; color: #666666; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">Your Business</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0 20px 20px 20px;">
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                          <td style="color: #555555; font-size: 14px; padding: 4px 0;">Business Name</td>
+                          <td align="right" style="color: #222222; font-size: 14px; font-weight: 600; padding: 4px 0;">{{ business_name }}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Next Steps -->
+            <tr>
+              <td style="padding: 28px 32px 0 32px;">
+                <p style="margin: 0 0 12px 0; color: #333333; font-size: 15px; font-weight: 600;">Get started in 3 easy steps:</p>
+                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 8px 0; vertical-align: top; width: 28px;">
+                      <span style="display: inline-block; width: 22px; height: 22px; background-color: #1a1a1a; border-radius: 50%; text-align: center; line-height: 22px; color: #ffffff; font-size: 12px; font-weight: 700;">1</span>
+                    </td>
+                    <td style="padding: 8px 0 8px 10px; color: #444444; font-size: 14px; line-height: 1.6;">
+                      <strong>Customize your services</strong> — add your service menu, pricing, and durations.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; vertical-align: top; width: 28px;">
+                      <span style="display: inline-block; width: 22px; height: 22px; background-color: #1a1a1a; border-radius: 50%; text-align: center; line-height: 22px; color: #ffffff; font-size: 12px; font-weight: 700;">2</span>
+                    </td>
+                    <td style="padding: 8px 0 8px 10px; color: #444444; font-size: 14px; line-height: 1.6;">
+                      <strong>Set up your staff</strong> — invite team members and assign roles.
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; vertical-align: top; width: 28px;">
+                      <span style="display: inline-block; width: 22px; height: 22px; background-color: #1a1a1a; border-radius: 50%; text-align: center; line-height: 22px; color: #ffffff; font-size: 12px; font-weight: 700;">3</span>
+                    </td>
+                    <td style="padding: 8px 0 8px 10px; color: #444444; font-size: 14px; line-height: 1.6;">
+                      <strong>Share your booking link</strong> — let clients book online 24/7.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- CTA Button -->
+            <tr>
+              <td style="padding: 32px; text-align: center;">
+                <a href="{{ dashboard_url }}"
+                   style="display: inline-block; background-color: #1a1a1a; color: #ffffff; font-size: 15px; font-weight: 600; text-decoration: none; padding: 14px 36px; border-radius: 8px; letter-spacing: 0.3px;">
+                  Go to Dashboard
+                </a>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding: 0 32px 32px 32px; text-align: center; color: #aaaaaa; font-size: 13px; line-height: 1.7; border-top: 1px solid #eeeeee;">
+                <p style="margin: 24px 0 0 0;">
+                  Need help? Reply to this email or visit our support centre.<br/>
+                  &copy; Bookngon. All rights reserved.
+                </p>
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

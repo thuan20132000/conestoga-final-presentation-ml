@@ -1,0 +1,20 @@
+Appointment Reminder - {{ business_name }}
+
+Hi {{ client_name|default:"there" }},
+
+This is a friendly reminder about your upcoming appointment. We look forward to seeing you!
+
+Appointment Details:
+- Appointment #: {{ appointment_id }}
+- Date & Time: {{ start_at }}
+{% if total_duration %}- Estimated Duration: {{ total_duration }} min
+{% endif %}
+{% if services %}Services:
+{% for service in services %}- {{ service.service_name }}{% if service.staff_name %} — {{ service.staff_name }}{% endif %}{% if service.duration %} ({{ service.duration }} min){% endif %} - ${{ service.price }}
+{% endfor %}{% endif %}
+{% if total_price %}Estimated Total: ${{ total_price }}
+{% endif %}
+{% if business_address %}{{ business_address }}
+{% endif %}{% if business_phone %}Need to cancel or reschedule? Contact us: {{ business_phone }}{% endif %}
+
+Thank you for choosing {{ business_name }}!

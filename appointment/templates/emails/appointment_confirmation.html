@@ -1,0 +1,136 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Appointment Confirmed - {{ business_name }}</title>
+    <style type="text/css">
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
+      }
+      table {
+        border-collapse: collapse;
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      @media only screen and (max-width: 600px) {
+        .container { width: 100% !important; }
+      }
+    </style>
+  </head>
+  <body style="margin: 0; padding: 0; background-color: #f4f4f4;">
+    <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f4f4f4; padding: 40px 0;">
+      <tr>
+        <td align="center">
+          <table border="0" cellpadding="0" cellspacing="0" width="600" class="container" style="max-width: 600px; width: 100%; background-color: #ffffff; border-radius: 12px; overflow: hidden;">
+
+            <!-- Header -->
+            <tr>
+              <td style="background-color: #1a1a1a; padding: 32px; text-align: center;">
+                <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 700; letter-spacing: 0.5px;">{{ business_name }}</h1>
+                <p style="margin: 8px 0 0 0; color: #aaaaaa; font-size: 14px;">Appointment Confirmed</p>
+              </td>
+            </tr>
+
+            <!-- Greeting -->
+            <tr>
+              <td style="padding: 32px 32px 0 32px;">
+                <p style="margin: 0; color: #333333; font-size: 16px; line-height: 1.6;">
+                  Hi {{ client_name|default:"there" }},<br/>
+                  Your appointment has been confirmed. We look forward to seeing you!
+                </p>
+              </td>
+            </tr>
+
+            <!-- Appointment Details -->
+            <tr>
+              <td style="padding: 24px 32px 0 32px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f9f9f9; border-radius: 8px; border: 1px solid #eeeeee;">
+                  <tr>
+                    <td style="padding: 20px 20px 0 20px;">
+                      <p style="margin: 0 0 16px 0; color: #666666; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">Appointment Details</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 0 20px 20px 20px;">
+                      <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                        <tr>
+                          <td style="color: #555555; font-size: 14px; padding: 4px 0;">Appointment #</td>
+                          <td align="right" style="color: #222222; font-size: 14px; font-weight: 600; padding: 4px 0;">{{ appointment_id }}</td>
+                        </tr>
+                        <tr>
+                          <td style="color: #555555; font-size: 14px; padding: 4px 0;">Date &amp; Time</td>
+                          <td align="right" style="color: #222222; font-size: 14px; font-weight: 600; padding: 4px 0;">{{ start_at }}</td>
+                        </tr>
+                        {% if total_duration %}
+                        <tr>
+                          <td style="color: #555555; font-size: 14px; padding: 4px 0;">Estimated Duration</td>
+                          <td align="right" style="color: #222222; font-size: 14px; font-weight: 600; padding: 4px 0;">{{ total_duration }} min</td>
+                        </tr>
+                        {% endif %}
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- Services -->
+                  {% if services %}
+                  <tr>
+                    <td style="padding: 0 20px 0 20px;">
+                      <div style="border-top: 1px solid #eeeeee; padding-top: 16px;">
+                        <p style="margin: 0 0 12px 0; color: #666666; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">Services</p>
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                          {% for service in services %}
+                          <tr>
+                            <td style="color: #444444; font-size: 14px; padding: 4px 0;">
+                              {{ service.service_name }}
+                              {% if service.staff_name %}<span style="color: #888888; font-size: 13px;"> &mdash; {{ service.staff_name }}</span>{% endif %}
+                              {% if service.duration %}<span style="color: #999999; font-size: 12px;"> ({{ service.duration }} min)</span>{% endif %}
+                            </td>
+                            <td align="right" style="color: #222222; font-size: 14px; padding: 4px 0;">${{ service.price }}</td>
+                          </tr>
+                          {% endfor %}
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endif %}
+
+                  <!-- Total -->
+                  {% if total_price %}
+                  <tr>
+                    <td style="padding: 16px 20px 20px 20px;">
+                      <div style="border-top: 1px solid #dddddd; padding-top: 14px;">
+                        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                          <tr>
+                            <td style="color: #111111; font-size: 16px; font-weight: 700;">Estimated Total</td>
+                            <td align="right" style="color: #111111; font-size: 18px; font-weight: 700;">${{ total_price }}</td>
+                          </tr>
+                        </table>
+                      </div>
+                    </td>
+                  </tr>
+                  {% endif %}
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding: 32px; text-align: center; color: #aaaaaa; font-size: 13px; line-height: 1.6;">
+                Thank you for choosing <strong style="color: #888888;">{{ business_name }}</strong>.<br/>
+                {% if business_address %}{{ business_address }}<br/>{% endif %}
+                {% if business_phone %}Need to cancel or reschedule? Contact us: <a href="tel:{{ business_phone }}" style="color: #888888; text-decoration: none;">{{ business_phone }}</a><br/>{% endif %}
+                We hope to see you soon!
+              </td>
+            </tr>
+
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

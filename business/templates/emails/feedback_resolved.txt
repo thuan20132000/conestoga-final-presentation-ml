@@ -1,0 +1,17 @@
+Hi {{ submitted_by_name }},
+
+Great news! Your feedback for {{ business_name }} has been reviewed and resolved by our team.
+
+Your Feedback:
+- Category: {{ category }}
+- Subject: {{ subject }}
+- Status: Resolved
+
+{% if admin_response %}Our Response:
+{{ admin_response }}
+{% endif %}
+Thank you for helping us improve Bookngon. If you have further questions or feedback, feel free to reply to this email.
+
+---
+Need help? Reply to this email or visit our support centre.
+© Bookngon. All rights reserved.

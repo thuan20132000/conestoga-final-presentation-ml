@@ -1,0 +1,9 @@
+Hi {{ client_name|default:"there" }},
+
+Your login code for {{ business_name }} is: {{ otp_code }}
+
+This code expires in {{ expiry_minutes }} minutes.
+
+If you did not request this code, you can safely ignore this email.
+
+Thank you for choosing {{ business_name }}.
