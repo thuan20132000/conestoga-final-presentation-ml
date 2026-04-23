@@ -57,10 +57,7 @@ Caller (Phone)
 [ PostgreSQL / Data Store ]
 ```
 
-
-![System Architecture Diagram](./Architecture.png)
-
-
+System Architecture Diagram
 
 The system operates as two cooperating servers:
 
@@ -177,7 +174,6 @@ else:
 - Enables **predictive ML capability** required by the course
 - Allows A/B comparison between LLM and classic ML results
 - Improves transparency for model behavior and reproducibility
-
 
 ---
 
@@ -402,20 +398,20 @@ This architecture separates:
 ## Technology Stack
 
 
-| Layer                  | Technology                       | Role                                             |
-| ---------------------- | -------------------------------- | ------------------------------------------------ |
-| **Telephony**          | Twilio Voice + ConversationRelay | PSTN connection, audio streaming                 |
-| **Voice Layer Server** | FastAPI + Uvicorn                | Real-time WebSocket management                   |
-| **AI Orchestration**   | OpenAI Agents SDK                | Agent definitions, tool calls, handoffs          |
-| **LLM / Voice AI**     | GPT-5-mini / OpenAI Realtime API | Speech understanding, response generation, fallback analysis |
-| **Business Logic API** | Django REST Framework            | Data access, CRM integration, tool endpoints     |
-| **Database**           | PostgreSQL                       | Conversation logs, escalation records, callbacks |
-| **ML Training Pipeline** | DVC + params.yaml              | Reproducible model training and artifact tracking |
-| **Post-Call ML Models** | scikit-learn (TF-IDF + Logistic) | Category, sentiment, and outcome prediction      |
-| **Artifacts**            | joblib + JSON metrics          | Serialized models and evaluation outputs         |
-| **NLP Utilities**      | SpaCy / HuggingFace Transformers | Entity extraction, intent classification support |
-| **Distress Analysis**  | Custom PyTorch classifier        | Sentiment + distress scoring                     |
-| **Deployment**         | Docker + Nginx                   | Containerised dual-server deployment             |
+| Layer                    | Technology                       | Role                                                          |
+| ------------------------ | -------------------------------- | ------------------------------------------------------------- |
+| **Telephony**            | Twilio Voice + ConversationRelay | PSTN connection, audio streaming                              |
+| **Voice Layer Server**   | FastAPI + Uvicorn                | Real-time WebSocket management                                |
+| **AI Orchestration**     | OpenAI Agents SDK                | Agent definitions, tool calls, handoffs                       |
+| **LLM / Voice AI**       | GPT-5-mini / OpenAI Realtime API | Speech understanding, response generation, fallback analysis  |
+| **Business Logic API**   | Django REST Framework            | Data access, CRM integration, tool endpoints                  |
+| **Database**             | PostgreSQL                       | Conversation logs, escalation records, callbacks              |
+| **ML Training Pipeline** | DVC + params.yaml                | Reproducible model training and artifact tracking             |
+| **Post-Call ML Models**  | scikit-learn (TF-IDF + Logistic) | Category, sentiment, and outcome prediction                   |
+| **Artifacts**            | joblib + JSON metrics            | Serialized models and evaluation outputs                      |
+| **NLP Utilities**        | SpaCy / HuggingFace Transformers | Entity extraction, intent classification support              |
+| **Distress Analysis**    | Custom PyTorch classifier        | Sentiment + distress scoring                                  |
+| **Deployment**           | Nginx + systemd + Make           | Reverse proxy, process supervision, and service orchestration |
 
 
 ---
@@ -461,23 +457,32 @@ This architecture separates:
 
 ## Deployment & Infrastructure
 
-The system is containerised using **Docker Compose** with two primary services:
+The system is deployed on Linux VMs using **Nginx** as reverse proxy, **systemd** for process management, and **Make** targets for repeatable operational commands.
 
-```yaml
-services:
-  fastapi:
-    # Real-time voice layer
-    # Exposed on port 8000
-    # Requires low-latency networking to Twilio + OpenAI
+```bash
+# Application process management (systemd)
+sudo systemctl restart bookingngon-django
+sudo systemctl restart bookingngon-fastapi
+sudo systemctl status bookingngon-django
+sudo systemctl status bookingngon-fastapi
 
-  django:
-    # Business logic API
-    # Exposed on port 8080 (internal)
-    # Connects to PostgreSQL
+# Reverse proxy (Nginx)
+sudo nginx -t
+sudo systemctl reload nginx
 
-  postgres:
-    # Persistent data store
+# Developer/ops shortcuts (Make)
+make run          # Django API
+make run-fastapi  # FastAPI AI service
+make run-both     # Run both services locally
 ```
+
+**Runtime Topology**
+
+- **Nginx** exposes public endpoints and routes traffic to backend services.
+- **Django** runs as a dedicated service (systemd unit).
+- **FastAPI** runs as a dedicated service (systemd unit).
+- **PostgreSQL** provides persistent storage.
+- **Make** standardizes local/dev/prod operational commands.
 
 **Environment Configuration:**
 
