@@ -1,13 +1,86 @@
 # Bookngon AI - Virtual Receptionist (Django DRF + Twilio + OpenAI)
 
+## Smart AI Receptionist Overview
+
+This repository powers our CSCN8010 final project: a real-time AI receptionist that handles phone calls, performs intent-aware dialogue, and runs post-call analytics.
+
+- **Voice layer:** FastAPI WebSocket handling for Twilio media streams
+- **Business backend:** Django REST API + PostgreSQL
+- **AI orchestration:** OpenAI Agents SDK with tool calling and handoffs
+- **Post-call classification:** Hybrid backend (`openai` or local `ml`)
+- **ML pipeline orchestration:** DVC + sklearn training artifacts
+
+Architecture reference: `AI_Receptionist_Presentation.md` and `Architecture.png`.
+
+## Core Capabilities
+
+- Real-time inbound call handling via Twilio
+- Multi-agent routing (FAQ, booking, reschedule, cancel)
+- Transcript persistence and call metadata tracking
+- End-of-call classification for:
+  - `category` (`make_appointment`, `cancel_appointment`, `reschedule_appointment`, `ask_question`, `unknown`)
+  - `sentiment` (`positive`, `negative`, `neutral`)
+  - `outcome` (`successful`, `unsuccessful`, `unknown`)
+- Manager notification after call finalization
+
+## Post-Call Analysis Backends
+
+Set backend in environment:
+
+- `CALL_ANALYSIS_BACKEND=openai` (LLM-based analysis)
+- `CALL_ANALYSIS_BACKEND=ml` (local sklearn model inference)
+
+Optional model artifact path:
+
+- `CALL_ML_MODEL_PATH=ml/artifacts/post_call_models.joblib`
+
+## DVC + ML Pipeline
+
+Pipeline files:
+
+- `dvc.yaml`
+- `params.yaml`
+- `ml/scripts/train_intent_model.py`
+- `data/call_intent/training.csv`
+
+Run training pipeline:
+
+```bash
+dvc repro
+dvc status
+```
+
+If DVC is already initialized and you see `.dvc exists`, do **not** run `dvc init` again.
+
+## Deployment (No Docker)
+
+Production deployment uses **Nginx + systemd + Make**.
+
+- **Nginx**: reverse proxy and public routing
+- **systemd**: manages Django and FastAPI services
+- **Make**: standard command entrypoints for run/lint/test workflows
+
+Typical operations:
+
+```bash
+sudo systemctl restart bookingngon-django
+sudo systemctl restart bookingngon-fastapi
+sudo systemctl status bookingngon-django
+sudo systemctl status bookingngon-fastapi
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
 ## Environment variables
 Set these in your shell or a .env loaded by your process manager:
 
 - OPENAI_API_KEY
-- OPENAI_MODEL (optional, default: gpt-4o-mini)
+- OPENAI_MODEL (optional, default from `ai_service/config.py`)
 - OPENAI_TEMPERATURE (optional, default: 0.4)
 - ALLOWED_HOSTS (comma-separated, e.g. "localhost,127.0.0.1,*.ngrok-free.app")
 - TWILIO_AUTH_TOKEN (optional for signature verification)
+- CALL_ANALYSIS_BACKEND
+- CALL_ML_MODEL_PATH (optional, default: `ml/artifacts/post_call_models.joblib`)
 
 ## Install & run (dev)
 ```bash
@@ -18,8 +91,7 @@ python manage.py runserver 0.0.0.0:8000
 ```
 
 ## Endpoints
-- Voice webhook: `POST /api/receptionist/twilio/voice/`
-- SMS webhook: `POST /api/receptionist/twilio/sms/`
+- Voice webhook: `POST /api/receptionist/twilio/i/`
 
 Both return TwiML (`text/xml`).
 
@@ -38,10 +110,6 @@ The code includes a placeholder `verify_twilio_signature` in `receptionist/views
 
 ## Quick test (without Twilio)
 ```bash
-# SMS simulate
-curl -X POST http://localhost:8000/api/receptionist/twilio/sms/ \
-  -d 'From=+15551234567' -d 'Body=Hi, I want to book a table'
-
 # Voice simulate (Twilio normally sends many params)
 curl -X POST http://localhost:8000/api/receptionist/twilio/voice/ \
   -d 'SpeechResult=I would like a reservation at 7pm'
